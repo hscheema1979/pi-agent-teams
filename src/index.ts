@@ -247,4 +247,36 @@ export default function (pi: ExtensionAPI) {
       await commands.teamDelegate(args, ctx, teamManager);
     },
   });
+
+  // ============================================================================
+  // OMC ENGINE COMMANDS
+  // ============================================================================
+
+  pi.registerCommand("team-auto", {
+    description: "🤖 AUTOPILOT - Autonomous orchestration (OMC)",
+    handler: async (args, ctx) => {
+      await commands.teamAuto(args, ctx, teamManager);
+    },
+  });
+
+  pi.registerCommand("team-verified", {
+    description: "🔄 RALPH - Verification loops (OMC)",
+    handler: async (args, ctx) => {
+      await commands.teamVerified(args, ctx, teamManager);
+    },
+  });
+
+  pi.registerCommand("team-rawr", {
+    description: "🐯 RAWR - Triple engine power! (ralph + autopilot + ultrawork)",
+    handler: async (args, ctx) => {
+      await commands.teamRAWR(args, ctx, teamManager);
+    },
+  });
+
+  pi.registerCommand("team-swarm", {
+    description: "🐝 SWARM - Multi-team coordination (OMC)",
+    handler: async (args, ctx) => {
+      await commands.teamSwarm(args, ctx, teamManager);
+    },
+  });
 }
