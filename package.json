@@ -1,0 +1,34 @@
+{
+  "name": "pi-agent-teams",
+  "version": "0.1.0",
+  "description": "Multi-agent orchestration for pi: parallel code reviews, hypothesis-driven debugging, and coordinated feature development",
+  "main": "src/index.ts",
+  "type": "module",
+  "keywords": [
+    "agents",
+    "teams",
+    "orchestration",
+    "parallel",
+    "review",
+    "debugging",
+    "multi-agent"
+  ],
+  "author": "pi community",
+  "license": "MIT",
+  "scripts": {
+    "test": "node --test src/test/*.test.ts",
+    "type-check": "tsc --noEmit",
+    "dev": "node --watch src/index.ts"
+  },
+  "dependencies": {
+    "@mariozechner/pi-coding-agent": "latest",
+    "@sinclair/typebox": "^0.32.0"
+  },
+  "devDependencies": {
+    "@types/node": "^20.0.0",
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

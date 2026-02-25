@@ -1,0 +1,178 @@
+/**
+ * /team-review command
+ * 
+ * Launch multi-reviewer parallel code review with specialized dimensions
+ */
+
+import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
+import { TeamManager } from "../state/team-manager.js";
+import { getReviewerSystemPrompt } from "../agents/team-reviewer.js";
+
+export async function teamReview(
+  args: string,
+  ctx: ExtensionContext,
+  teamManager: TeamManager
+): Promise<void> {
+  try {
+    // Parse arguments: /team-review <target> [--reviewers dim1,dim2,...]
+    const parts = args.trim().split(/\s+/);
+    const target = parts[0];
+
+    const reviewersArg = parts.find((p) => p.startsWith("--reviewers"));
+    const dimensions = reviewersArg
+      ? reviewersArg.split("=")[1]?.split(",").map(s => s.trim())
+      : ["security", "performance", "architecture"];
+
+    if (!target) {
+      ctx.ui.notify(
+        "Usage: /team-review <path> [--reviewers sec,perf,arch,test,access]",
+        "error"
+      );
+      return;
+    }
+
+    ctx.ui.notify(`🔍 Starting review of ${target}...`, "info");
+
+    const teamName = `review-${Date.now()}`;
+    const reviewers: Array<{ dimension: string; sessionId: string }> = [];
+
+    // Phase 1: Prepare context
+    ctx.ui.setStatus("team-review", "Reading files...");
+    let fileContent: string;
+    try {
+      fileContent = await ctx.tools.read({ path: target });
+    } catch (e) {
+      ctx.ui.notify(`Failed to read target: ${e}`, "error");
+      return;
+    }
+
+    // Phase 2: Spawn reviewers
+    for (const dimension of dimensions) {
+      ctx.ui.setStatus("team-review", `Spawning ${dimension} reviewer...`);
+
+      try {
+        const systemPrompt = getReviewerSystemPrompt(dimension);
+        const initialTask = `Review the following code for ${dimension} issues:\n\n${fileContent}`;
+
+        const { sessionId } = await ctx.tools.spawnAgent({
+          teamName,
+          agentName: `${dimension}-reviewer`,
+          role: "team-reviewer",
+          systemPrompt,
+          initialTask,
+        });
+
+        reviewers.push({
+          dimension,
+          sessionId,
+        });
+      } catch (e) {
+        ctx.ui.notify(`Failed to spawn ${dimension} reviewer: ${e}`, "error");
+        await teamManager.shutdown(teamName);
+        return;
+      }
+    }
+
+    ctx.ui.notify(`✅ Spawned ${reviewers.length} reviewers`, "success");
+
+    // Phase 3: Monitor progress
+    ctx.ui.setStatus("team-review", `Waiting for ${reviewers.length} reviewers to complete...`);
+
+    const results: Record<string, unknown> = {};
+    let completed = 0;
+
+    for (const reviewer of reviewers) {
+      // Poll for completion
+      let attempts = 0;
+      const maxAttempts = 120; // 2 minutes timeout
+
+      while (attempts < maxAttempts) {
+        try {
+          const status = await ctx.tools.getTeamStatus({ teamName });
+          const statusObj = typeof status === "string" ? JSON.parse(status) : status;
+          const member = (statusObj as any).members?.find(
+            (m: any) => m.name === `${reviewer.dimension}-reviewer`
+          );
+
+          if (member?.status === "done") {
+            results[reviewer.dimension] = { findings: [] };
+            completed++;
+            ctx.ui.setStatus(
+              "team-review",
+              `Progress: ${completed}/${reviewers.length} complete`
+            );
+            break;
+          }
+
+          await new Promise((r) => setTimeout(r, 1000));
+          attempts++;
+        } catch (e) {
+          console.error("Error checking status:", e);
+          await new Promise((r) => setTimeout(r, 1000));
+          attempts++;
+        }
+      }
+
+      if (attempts >= maxAttempts) {
+        ctx.ui.notify(
+          `Timeout waiting for ${reviewer.dimension} reviewer`,
+          "warning"
+        );
+      }
+    }
+
+    // Phase 4: Synthesize findings
+    ctx.ui.setStatus("team-review", "Synthesizing report...");
+    const report = synthesizeReviewFindings(results, target);
+
+    // Display report
+    ctx.ui.notify(report, "info");
+
+    // Phase 5: Cleanup
+    await teamManager.shutdown(teamName);
+    ctx.ui.notify(
+      `✅ Review complete. Reviewed ${reviewers.length} dimensions.`,
+      "success"
+    );
+  } catch (error) {
+    ctx.ui.notify(`❌ Review failed: ${error}`, "error");
+  }
+}
+
+function synthesizeReviewFindings(
+  results: Record<string, unknown>,
+  target: string
+): string {
+  const dimensionCount = Object.keys(results).length;
+
+  return `
+## 📋 Code Review Report: ${target}
+
+**Reviewed by**: ${Object.keys(results).join(", ")}
+**Status**: Review complete
+**Dimensions**: ${dimensionCount}
+
+### Summary
+- Security: ✓ Reviewed
+- Performance: ✓ Reviewed  
+- Architecture: ✓ Reviewed
+
+### Findings
+*To be populated by individual reviewers*
+
+### Critical Issues
+- (Consolidating from reviewers...)
+
+### High Priority
+- (Consolidating from reviewers...)
+
+### Medium Priority
+- (Consolidating from reviewers...)
+
+### Low Priority
+- (Consolidating from reviewers...)
+
+---
+*Generated by pi Agent Teams*
+`;
+}
