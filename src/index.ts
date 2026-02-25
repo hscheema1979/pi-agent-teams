@@ -322,4 +322,11 @@ export default function (pi: ExtensionAPI) {
       await commands.teamVerifiedSwarm(args, ctx, teamManager);
     },
   });
+
+  pi.registerCommand("rawrs", {
+    description: "🐯🐝 rawrs: ULTIMATE POWER - RAWR + SWARM (all 4 engines)",
+    handler: async (args, ctx) => {
+      await commands.teamRAWRS(args, ctx, teamManager);
+    },
+  });
 }

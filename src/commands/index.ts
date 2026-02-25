@@ -19,3 +19,4 @@ export * from "./team-swarm.js";
 
 // OMC Combined commands
 export * from "./team-verified-swarm.js";
+export * from "./team-rawrs.js";
