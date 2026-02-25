@@ -279,4 +279,44 @@ export default function (pi: ExtensionAPI) {
       await commands.teamSwarm(args, ctx, teamManager);
     },
   });
+
+  // ============================================================================
+  // SHORTHAND ALIASES (Avoid keyword hooks)
+  // ============================================================================
+
+  pi.registerCommand("r@lph", {
+    description: "🔄 Alias: RALPH verification loops",
+    handler: async (args, ctx) => {
+      await commands.teamVerified(args, ctx, teamManager);
+    },
+  });
+
+  pi.registerCommand("sw@rm", {
+    description: "🐝 Alias: SWARM multi-team coordination",
+    handler: async (args, ctx) => {
+      await commands.teamSwarm(args, ctx, teamManager);
+    },
+  });
+
+  pi.registerCommand("@utopilot", {
+    description: "🤖 Alias: AUTOPILOT autonomous mode",
+    handler: async (args, ctx) => {
+      await commands.teamAuto(args, ctx, teamManager);
+    },
+  });
+
+  pi.registerCommand("ultrawork", {
+    description: "⚡ Alias: ULTRAWORK max parallelization",
+    handler: async (args, ctx) => {
+      // ULTRAWORK is typically used inside RAWR, but can be invoked directly
+      await commands.teamRAWR(args, ctx, teamManager);
+    },
+  });
+
+  pi.registerCommand("rawr", {
+    description: "🐯 Alias: RAWR triple engine (r@lph + @utopilot + ultrawork)",
+    handler: async (args, ctx) => {
+      await commands.teamRAWR(args, ctx, teamManager);
+    },
+  });
 }
