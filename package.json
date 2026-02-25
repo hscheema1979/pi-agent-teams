@@ -19,7 +19,7 @@
     "test": "node --test src/test/*.test.ts",
     "type-check": "tsc --noEmit",
     "dev": "node --watch src/index.ts",
-    "telegram:bot": "ts-node telegram-bot.ts"
+    "telegram:bot": "node telegram-bot.js"
   },
   "dependencies": {
     "@mariozechner/pi-coding-agent": "latest",
