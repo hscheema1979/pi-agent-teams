@@ -16,3 +16,6 @@ export * from "./team-auto.js";
 export * from "./team-verified.js";
 export * from "./team-rawr.js";
 export * from "./team-swarm.js";
+
+// OMC Combined commands
+export * from "./team-verified-swarm.js";

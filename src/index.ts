@@ -281,42 +281,45 @@ export default function (pi: ExtensionAPI) {
   });
 
   // ============================================================================
-  // SHORTHAND ALIASES (Avoid keyword hooks)
+  // SHORTHAND ALIASES (3-letter + special)
   // ============================================================================
 
-  pi.registerCommand("r@lph", {
-    description: "🔄 Alias: RALPH verification loops",
-    handler: async (args, ctx) => {
-      await commands.teamVerified(args, ctx, teamManager);
-    },
-  });
-
-  pi.registerCommand("sw@rm", {
-    description: "🐝 Alias: SWARM multi-team coordination",
-    handler: async (args, ctx) => {
-      await commands.teamSwarm(args, ctx, teamManager);
-    },
-  });
-
-  pi.registerCommand("@utopilot", {
-    description: "🤖 Alias: AUTOPILOT autonomous mode",
+  pi.registerCommand("tap", {
+    description: "🤖 tap: AUTOPILOT autonomous mode",
     handler: async (args, ctx) => {
       await commands.teamAuto(args, ctx, teamManager);
     },
   });
 
-  pi.registerCommand("ultrawork", {
-    description: "⚡ Alias: ULTRAWORK max parallelization",
+  pi.registerCommand("tav", {
+    description: "🔄 tav: RALPH verification loops",
     handler: async (args, ctx) => {
-      // ULTRAWORK is typically used inside RAWR, but can be invoked directly
-      await commands.teamRAWR(args, ctx, teamManager);
+      await commands.teamVerified(args, ctx, teamManager);
     },
   });
 
   pi.registerCommand("rawr", {
-    description: "🐯 Alias: RAWR triple engine (r@lph + @utopilot + ultrawork)",
+    description: "🐯 rawr: RAWR triple engine (ralph + autopilot + ultrawork)",
     handler: async (args, ctx) => {
       await commands.teamRAWR(args, ctx, teamManager);
+    },
+  });
+
+  pi.registerCommand("swarm", {
+    description: "🐝 swarm: SWARM multi-team coordination",
+    handler: async (args, ctx) => {
+      await commands.teamSwarm(args, ctx, teamManager);
+    },
+  });
+
+  // ============================================================================
+  // COMBINED MODES (Multiple engines)
+  // ============================================================================
+
+  pi.registerCommand("tvs", {
+    description: "🔄🐝 tvs: RALPH + SWARM combined - Multiple verified teams",
+    handler: async (args, ctx) => {
+      await commands.teamVerifiedSwarm(args, ctx, teamManager);
     },
   });
 }
