@@ -59,66 +59,129 @@ Available commands:
 Powered by OMC Engines: RALPH, AUTOPILOT, ULTRAWORK, SWARM
 `;
 
+// Utility to send message with error handling (supports topics/threads)
+async function sendMessage(chatId, text, msg = null, options = {}) {
+  try {
+    const sendOptions = {
+      parse_mode: "Markdown",
+      ...options,
+    };
+    
+    // If message exists and has thread_id, include it
+    if (msg && msg.message_thread_id) {
+      sendOptions.message_thread_id = msg.message_thread_id;
+    }
+    
+    const result = await bot.sendMessage(chatId, text, sendOptions);
+    console.log(`[SENT] Chat ${chatId}: Message sent successfully`);
+    return result;
+  } catch (error) {
+    console.error(`[ERROR] Failed to send message to ${chatId}:`, error.message);
+    // Try sending without markdown if it fails
+    try {
+      const sendOptions = {};
+      if (msg && msg.message_thread_id) {
+        sendOptions.message_thread_id = msg.message_thread_id;
+      }
+      return await bot.sendMessage(chatId, text, sendOptions);
+    } catch (error2) {
+      console.error(`[ERROR] Still failed:`, error2.message);
+    }
+  }
+}
+
 // Start message
 bot.on("start", (msg) => {
   const chatId = msg.chat.id;
-  bot.sendMessage(chatId, helpMessage, { parse_mode: "Markdown" });
+  console.log(`[START] User ${chatId}: ${msg.chat.first_name}`);
+  sendMessage(chatId, helpMessage, msg);
+});
+
+// Catch ALL messages for debugging
+bot.on("message", (msg) => {
+  const chatId = msg.chat.id;
+  const text = msg.text || "(no text)";
+  const thread_id = msg.message_thread_id ? ` [Thread ${msg.message_thread_id}]` : "";
+  console.log(`[MESSAGE] Chat ${chatId}${thread_id}: ${text}`);
+  
+  // If it's not a command we handle, send helpful message
+  if (text && !text.startsWith("/")) {
+    sendMessage(
+      chatId,
+      `🤖 I received: "${text}"\n\nSend /help for commands!`,
+      msg,
+      { parse_mode: "Markdown" }
+    );
+  }
 });
 
 // Help command
 bot.onText(/\/help/, (msg) => {
   const chatId = msg.chat.id;
-  bot.sendMessage(chatId, helpMessage, { parse_mode: "Markdown" });
+  const thread_id = msg.message_thread_id ? ` [Thread ${msg.message_thread_id}]` : "";
+  console.log(`[HELP] Chat ${chatId}${thread_id}`);
+  sendMessage(chatId, helpMessage, msg);
 });
 
 // Status command
 bot.onText(/\/status/, (msg) => {
   const chatId = msg.chat.id;
+  const thread_id = msg.message_thread_id ? ` [Thread ${msg.message_thread_id}]` : "";
+  console.log(`[STATUS] Chat ${chatId}${thread_id}`);
   const teamName = activeTeams.get(chatId);
 
   if (teamName) {
-    bot.sendMessage(
+    sendMessage(
       chatId,
       `📊 *Active Team:* \`${teamName}\`\n\nRunning... Use /stop to shutdown.`,
+      msg,
       { parse_mode: "Markdown" }
     );
   } else {
-    bot.sendMessage(chatId, "✅ No active teams", { parse_mode: "Markdown" });
+    sendMessage(chatId, "✅ No active teams", msg, { parse_mode: "Markdown" });
   }
 });
 
 // Stop command
 bot.onText(/\/stop/, (msg) => {
   const chatId = msg.chat.id;
+  const thread_id = msg.message_thread_id ? ` [Thread ${msg.message_thread_id}]` : "";
+  console.log(`[STOP] Chat ${chatId}${thread_id}`);
   if (activeTeams.has(chatId)) {
     activeTeams.delete(chatId);
-    bot.sendMessage(chatId, "🛑 Teams stopped", { parse_mode: "Markdown" });
+    sendMessage(chatId, "🛑 Teams stopped", msg, { parse_mode: "Markdown" });
   } else {
-    bot.sendMessage(chatId, "ℹ️ No active teams to stop", {
+    sendMessage(chatId, "ℹ️ No active teams to stop", msg, {
       parse_mode: "Markdown",
     });
   }
 });
 
 // Command execution
-async function executeCommand(chatId, command, task, options) {
+async function executeCommand(msg, command, task, options) {
+  const chatId = msg.chat.id;
   const teamName = `tg-${chatId}-${Date.now()}`;
   activeTeams.set(chatId, teamName);
+  
+  const thread_id = msg.message_thread_id ? ` [Thread ${msg.message_thread_id}]` : "";
+  console.log(`[EXECUTE] ${command.toUpperCase()}${thread_id} - Chat ${chatId} - Task: ${task}`);
 
   // Build command string
   const fullCommand = `${command} "${task}"${options ? " " + options : ""}`;
 
-  await bot.sendMessage(
+  await sendMessage(
     chatId,
     `🚀 *Starting:* \`${command}\`\n\n📝 Task: ${task}${
       options ? `\n⚙️ Options: ${options}` : ""
     }`,
+    msg,
     { parse_mode: "Markdown" }
   );
 
-  await bot.sendMessage(
+  await sendMessage(
     chatId,
     `✅ *Executing:*\n\`${fullCommand}\`\n\nProcessing...`,
+    msg,
     { parse_mode: "Markdown" }
   );
 
@@ -141,26 +204,30 @@ async function executeCommand(chatId, command, task, options) {
 Ready for next task!
 `;
 
-    await bot.sendMessage(chatId, result, { parse_mode: "Markdown" });
+    await sendMessage(chatId, result, msg, { parse_mode: "Markdown" });
     activeTeams.delete(chatId);
   }, 2000);
 }
 
 // Register command handlers
 bot.onText(/\/tap\s+(.+)/i, (msg, match) => {
-  executeCommand(msg.chat.id, "tap", match[1]);
+  console.log(`[TAP] Chat ${msg.chat.id}: ${match[1]}`);
+  executeCommand(msg, "tap", match[1]);
 });
 
 bot.onText(/\/tav\s+(.+)/i, (msg, match) => {
-  executeCommand(msg.chat.id, "tav", match[1]);
+  console.log(`[TAV] Chat ${msg.chat.id}: ${match[1]}`);
+  executeCommand(msg, "tav", match[1]);
 });
 
 bot.onText(/\/tvs\s+(.+)/i, (msg, match) => {
-  executeCommand(msg.chat.id, "tvs", match[1]);
+  console.log(`[TVS] Chat ${msg.chat.id}: ${match[1]}`);
+  executeCommand(msg, "tvs", match[1]);
 });
 
 bot.onText(/\/rawr\s+(.+)/i, (msg, match) => {
-  executeCommand(msg.chat.id, "rawr", match[1]);
+  console.log(`[RAWR] Chat ${msg.chat.id}: ${match[1]}`);
+  executeCommand(msg, "rawr", match[1]);
 });
 
 bot.onText(/\/rawrs\s+(.+)/i, (msg, match) => {
@@ -168,7 +235,8 @@ bot.onText(/\/rawrs\s+(.+)/i, (msg, match) => {
   const task = parts[0];
   const options =
     parts.length > 1 ? `--${parts.slice(1).join(" --")}` : "";
-  executeCommand(msg.chat.id, "rawrs", task, options);
+  console.log(`[RAWRS] Chat ${msg.chat.id}: ${task} ${options}`);
+  executeCommand(msg, "rawrs", task, options);
 });
 
 bot.onText(/\/swarm\s+(.+)/i, (msg, match) => {
@@ -176,12 +244,14 @@ bot.onText(/\/swarm\s+(.+)/i, (msg, match) => {
   const task = parts[0];
   const options =
     parts.length > 1 ? `--${parts.slice(1).join(" --")}` : "";
-  executeCommand(msg.chat.id, "swarm", task, options);
+  console.log(`[SWARM] Chat ${msg.chat.id}: ${task} ${options}`);
+  executeCommand(msg, "swarm", task, options);
 });
 
 // Error handling
 bot.on("error", (error) => {
   console.error("❌ Bot error:", error.message);
+  console.error(error.stack);
 });
 
 bot.on("polling_error", (error) => {
@@ -189,5 +259,6 @@ bot.on("polling_error", (error) => {
 });
 
 console.log("🤖 Telegram Bot for Pi-Agent-Teams is running...");
-console.log(`📱 Find your bot in Telegram and send /help for commands\n`);
+console.log(`📱 Find your bot @hsc_picat0_bot in Telegram\n`);
+console.log(`✅ Topics/Threads SUPPORTED\n`);
 console.log(`⏸️  Press Ctrl+C to stop\n`);
