@@ -28,7 +28,7 @@ export async function teamShutdown(
   ctx.ui.setStatus("team-shutdown", "Shutting down...");
   try {
     await teamManager.shutdown(teamName);
-    ctx.ui.notify(`✅ Team '${teamName}' shut down successfully`, "success");
+    ctx.ui.notify(`✅ Team '${teamName}' shut down successfully`, "info");
   } catch (e) {
     ctx.ui.notify(`Failed to shutdown team: ${e}`, "error");
   }

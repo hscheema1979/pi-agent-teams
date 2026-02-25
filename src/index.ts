@@ -17,29 +17,13 @@ let teamManager: TeamManager;
 
 export default function (pi: ExtensionAPI) {
   // Initialize team manager on session start
-  pi.on("session_start", async (event, ctx) => {
+  pi.on("session_start", async (_event, ctx) => {
     try {
       teamManager = new TeamManager();
       await teamManager.loadTeams();
       ctx.ui.notify("🤝 Agent Teams loaded and ready", "info");
     } catch (error) {
       ctx.ui.notify(`Failed to load Agent Teams: ${error}`, "error");
-    }
-  });
-
-  // Cleanup on session end
-  pi.on("session_end", async (event, ctx) => {
-    try {
-      if (teamManager) {
-        const teams = teamManager.getAllTeams();
-        for (const team of teams) {
-          if (team.status === "active") {
-            await teamManager.shutdown(team.name);
-          }
-        }
-      }
-    } catch (error) {
-      console.error("Error cleaning up teams:", error);
     }
   });
 
@@ -57,16 +41,18 @@ export default function (pi: ExtensionAPI) {
     parameters: Type.Object({
       teamName: Type.String({ description: "Team identifier" }),
       agentName: Type.String({ description: "Unique agent name in team" }),
-      role: Type.Enum(["team-lead", "team-reviewer", "team-debugger", "team-implementer"], {
-        description: "Agent role/type",
-      }),
+      role: Type.Union([
+        Type.Literal("team-lead"),
+        Type.Literal("team-reviewer"),
+        Type.Literal("team-debugger"),
+        Type.Literal("team-implementer"),
+      ], { description: "Agent role/type" }),
       systemPrompt: Type.String({ description: "System prompt for agent" }),
       initialTask: Type.String({ description: "Initial task description" }),
-      tools: Type.Optional(Type.Array(Type.String(), { description: "Tools to enable" })),
     }),
     async execute(toolCallId, params, signal, onUpdate, ctx) {
       try {
-        const { sessionId, process } = await teamManager.spawnAgent(
+        const { sessionId, process: proc } = await teamManager.spawnAgent(
           params.teamName,
           params.agentName,
           params.role as any,
@@ -78,10 +64,10 @@ export default function (pi: ExtensionAPI) {
           content: [
             {
               type: "text",
-              text: `✅ Agent spawned: ${params.agentName}\n\nSession ID: ${sessionId}\nProcess ID: ${process.pid}`,
+              text: `✅ Agent spawned: ${params.agentName}\n\nSession ID: ${sessionId}\nProcess ID: ${proc.pid}`,
             },
           ],
-          details: { sessionId, processId: process.pid },
+          details: { sessionId, processId: proc.pid },
         };
       } catch (error) {
         return {
@@ -91,6 +77,7 @@ export default function (pi: ExtensionAPI) {
               text: `❌ Failed to spawn agent: ${error}`,
             },
           ],
+          details: {},
         };
       }
     },
@@ -120,6 +107,7 @@ export default function (pi: ExtensionAPI) {
                   .join(", ") || "none"}`,
               },
             ],
+            details: {},
           };
         }
 
@@ -148,6 +136,7 @@ export default function (pi: ExtensionAPI) {
               text: JSON.stringify(status, null, 2),
             },
           ],
+          details: {},
         };
       } catch (error) {
         return {
@@ -157,6 +146,7 @@ export default function (pi: ExtensionAPI) {
               text: `Error getting team status: ${error}`,
             },
           ],
+          details: {},
         };
       }
     },
@@ -189,6 +179,7 @@ export default function (pi: ExtensionAPI) {
               text: `✅ Message sent to ${sent} recipient(s)`,
             },
           ],
+          details: {},
         };
       } catch (error) {
         return {
@@ -198,6 +189,7 @@ export default function (pi: ExtensionAPI) {
               text: `Error sending message: ${error}`,
             },
           ],
+          details: {},
         };
       }
     },

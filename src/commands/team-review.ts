@@ -5,6 +5,7 @@
  */
 
 import type { ExtensionContext } from "@mariozechner/pi-coding-agent";
+import * as fs from "node:fs/promises";
 import { TeamManager } from "../state/team-manager.js";
 import { getReviewerSystemPrompt } from "../agents/team-reviewer.js";
 
@@ -20,7 +21,7 @@ export async function teamReview(
 
     const reviewersArg = parts.find((p) => p.startsWith("--reviewers"));
     const dimensions = reviewersArg
-      ? reviewersArg.split("=")[1]?.split(",").map(s => s.trim())
+      ? reviewersArg.split("=")[1]?.split(",").map((s: string) => s.trim())
       : ["security", "performance", "architecture"];
 
     if (!target) {
@@ -40,7 +41,11 @@ export async function teamReview(
     ctx.ui.setStatus("team-review", "Reading files...");
     let fileContent: string;
     try {
-      fileContent = await ctx.tools.read({ path: target });
+      fileContent = await fs.readFile(target, "utf-8").catch(() => "");
+      if (!fileContent) {
+        ctx.ui.notify(`Could not read ${target}`, "warning");
+        fileContent = `Target: ${target}\n(Content not readable)`;
+      }
     } catch (e) {
       ctx.ui.notify(`Failed to read target: ${e}`, "error");
       return;
@@ -54,13 +59,13 @@ export async function teamReview(
         const systemPrompt = getReviewerSystemPrompt(dimension);
         const initialTask = `Review the following code for ${dimension} issues:\n\n${fileContent}`;
 
-        const { sessionId } = await ctx.tools.spawnAgent({
+        const { sessionId } = await teamManager.spawnAgent(
           teamName,
-          agentName: `${dimension}-reviewer`,
-          role: "team-reviewer",
+          `${dimension}-reviewer`,
+          "team-reviewer",
           systemPrompt,
-          initialTask,
-        });
+          initialTask
+        );
 
         reviewers.push({
           dimension,
@@ -73,7 +78,7 @@ export async function teamReview(
       }
     }
 
-    ctx.ui.notify(`✅ Spawned ${reviewers.length} reviewers`, "success");
+    ctx.ui.notify(`✅ Spawned ${reviewers.length} reviewers`, "info");
 
     // Phase 3: Monitor progress
     ctx.ui.setStatus("team-review", `Waiting for ${reviewers.length} reviewers to complete...`);
@@ -88,20 +93,21 @@ export async function teamReview(
 
       while (attempts < maxAttempts) {
         try {
-          const status = await ctx.tools.getTeamStatus({ teamName });
-          const statusObj = typeof status === "string" ? JSON.parse(status) : status;
-          const member = (statusObj as any).members?.find(
-            (m: any) => m.name === `${reviewer.dimension}-reviewer`
-          );
-
-          if (member?.status === "done") {
-            results[reviewer.dimension] = { findings: [] };
-            completed++;
-            ctx.ui.setStatus(
-              "team-review",
-              `Progress: ${completed}/${reviewers.length} complete`
+          const team = teamManager.getTeam(teamName);
+          if (team) {
+            const member = team.members.find(
+              (m) => m.name === `${reviewer.dimension}-reviewer`
             );
-            break;
+
+            if (member?.status === "done") {
+              results[reviewer.dimension] = { findings: [] };
+              completed++;
+              ctx.ui.setStatus(
+                "team-review",
+                `Progress: ${completed}/${reviewers.length} complete`
+              );
+              break;
+            }
           }
 
           await new Promise((r) => setTimeout(r, 1000));
@@ -132,7 +138,7 @@ export async function teamReview(
     await teamManager.shutdown(teamName);
     ctx.ui.notify(
       `✅ Review complete. Reviewed ${reviewers.length} dimensions.`,
-      "success"
+      "info"
     );
   } catch (error) {
     ctx.ui.notify(`❌ Review failed: ${error}`, "error");

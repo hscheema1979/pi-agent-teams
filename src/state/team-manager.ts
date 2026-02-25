@@ -149,7 +149,7 @@ export class TeamManager extends EventEmitter {
 
     // Spawn pi subprocess
     const sessionFile = path.join(team.configDir, `${agentName}.session`);
-    const process = spawn("pi", ["--session", sessionFile], {
+    const proc = spawn("pi", ["--session", sessionFile], {
       stdio: ["pipe", "pipe", "pipe"],
       detached: false,
       env: {
@@ -160,22 +160,22 @@ export class TeamManager extends EventEmitter {
       },
     });
 
-    member.process = process;
-    this.processMap.set(sessionId, process);
+    member.process = proc;
+    this.processMap.set(sessionId, proc);
 
     // Send initial setup to agent
-    if (process.stdin) {
+    if (proc.stdin) {
       const setupMessage = {
         type: "agent-setup",
         systemPrompt,
         task: initialTask,
         role,
       };
-      process.stdin.write(JSON.stringify(setupMessage) + "\n");
+      proc.stdin.write(JSON.stringify(setupMessage) + "\n");
     }
 
     // Handle output
-    process.stdout?.on("data", (data) => {
+    proc.stdout?.on("data", (data: any) => {
       this.emit("agent-output", {
         agentId: sessionId,
         agentName,
@@ -183,7 +183,7 @@ export class TeamManager extends EventEmitter {
       });
     });
 
-    process.stderr?.on("data", (data) => {
+    proc.stderr?.on("data", (data: any) => {
       this.emit("agent-error", {
         agentId: sessionId,
         agentName,
@@ -191,7 +191,7 @@ export class TeamManager extends EventEmitter {
       });
     });
 
-    process.on("exit", async (code) => {
+    proc.on("exit", async (code: any) => {
       member.status = code === 0 ? "done" : "error";
       member.lastUpdate = new Date();
       task.status = code === 0 ? "completed" : "failed";
@@ -210,7 +210,7 @@ export class TeamManager extends EventEmitter {
     // Save state
     await this.saveTeamState(team);
 
-    return { sessionId, process };
+    return { sessionId, process: proc };
   }
 
   /**
